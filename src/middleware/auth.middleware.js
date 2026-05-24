@@ -5,10 +5,10 @@ const COOKIE_NAME = "se_token";
 
 export const protect = async (req, res, next) => {
   try {
-    // 1. Try HttpOnly cookie first (most secure)
+    // Read from HttpOnly cookie
     let token = req.cookies?.[COOKIE_NAME];
 
-    // 2. Fall back to Authorization header (for API clients/testing)
+    // Fallback to Authorization header (for local dev or API clients)
     if (!token) {
       const authHeader = req.headers.authorization;
       if (authHeader?.startsWith("Bearer ")) {

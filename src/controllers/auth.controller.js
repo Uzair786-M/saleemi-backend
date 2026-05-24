@@ -1,13 +1,12 @@
 import jwt from "jsonwebtoken";
 import Admin from "../models/Admin.model.js";
 
-// ── Cookie config ─────────────────────────────────────────────
 const COOKIE_NAME = "se_token";
 const COOKIE_OPTS = {
-  httpOnly: true, // JS cannot read — prevents XSS token theft
-  secure: process.env.NODE_ENV === "production", // HTTPS only in prod
-  sameSite: "strict", // prevents CSRF
-  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in ms
+  httpOnly: true,
+  secure: true, // always true — Vercel is always HTTPS
+  sameSite: "none", // required for cross-domain (proxied requests)
+  maxAge: 7 * 24 * 60 * 60 * 1000,
   path: "/",
 };
 
@@ -20,32 +19,25 @@ const generateToken = (id) =>
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
-
     if (!email || !password) {
       return res
         .status(400)
         .json({ success: false, message: "Email and password are required." });
     }
-
     const admin = await Admin.findOne({ email: email.toLowerCase().trim() });
     if (!admin) {
       return res
         .status(401)
         .json({ success: false, message: "Invalid email or password." });
     }
-
     const isMatch = await admin.comparePassword(password);
     if (!isMatch) {
       return res
         .status(401)
         .json({ success: false, message: "Invalid email or password." });
     }
-
     const token = generateToken(admin._id);
-
-    // Set JWT as HttpOnly cookie — never exposed to JavaScript
     res.cookie(COOKIE_NAME, token, COOKIE_OPTS);
-
     res.json({
       success: true,
       user: {
