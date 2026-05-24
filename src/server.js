@@ -23,11 +23,25 @@ connectDB();
 const app = express();
 const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
 
-// ── Security ───────────────────────────────────────────────────
-app.use(helmet());
+// ── CORS ───────────────────────────────────────────────────────
+const allowedOrigins = [
+  process.env.CLIENT_URL,
+  "http://localhost:5173",
+  "http://localhost:3000",
+].filter(Boolean);
+
 app.use(
   cors({
-    origin: CLIENT_URL,
+    origin: (origin, callback) => {
+      // Allow requests with no origin (mobile apps, curl, Postman)
+      if (!origin) return callback(null, true);
+      // Allow any vercel.app domain (covers all preview deployments)
+      if (origin.endsWith(".vercel.app")) return callback(null, true);
+      // Allow exact matches from env
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      // Block everything else
+      callback(new Error(`CORS blocked: ${origin}`));
+    },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
