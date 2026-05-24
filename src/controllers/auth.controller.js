@@ -2,10 +2,11 @@ import jwt from "jsonwebtoken";
 import Admin from "../models/Admin.model.js";
 
 const COOKIE_NAME = "se_token";
+const IS_PROD = process.env.NODE_ENV === "production";
 const COOKIE_OPTS = {
   httpOnly: true,
-  secure: true, // always true — Vercel is always HTTPS
-  sameSite: "none", // required for cross-domain (proxied requests)
+  secure: IS_PROD, // true on Vercel (HTTPS), false on localhost (HTTP)
+  sameSite: IS_PROD ? "none" : "lax", // none for cross-domain proxy, lax for localhost
   maxAge: 7 * 24 * 60 * 60 * 1000,
   path: "/",
 };
