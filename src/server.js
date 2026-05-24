@@ -14,65 +14,63 @@ import testimonialsRoutes from "./routes/testimonials.routes.js";
 import contactRoutes from "./routes/contact.routes.js";
 import aboutRoutes from "./routes/about.routes.js";
 import pricingRoutes from "./routes/pricing.routes.js";
-
 import { errorHandler, notFound } from "./middleware/error.middleware.js";
 import { verifyEmailSetup } from "./controllers/contact.controller.js";
 
+// ── Connect DB ─────────────────────────────────────────────────
 connectDB();
 
 const app = express();
-const PORT = process.env.PORT || 5000;
 const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
 
-// ── Security headers ──────────────────────────────────────────
+// ── Security ───────────────────────────────────────────────────
 app.use(helmet());
-
-// ── CORS — must allow credentials for cookies to work ─────────
 app.use(
   cors({
     origin: CLIENT_URL,
-    credentials: true, // ← required for cookies
+    credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
   }),
 );
 
-// ── Body parsing ──────────────────────────────────────────────
+// ── Parsing ────────────────────────────────────────────────────
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
-
-// ── Cookie parser — required to read HttpOnly cookies ─────────
 app.use(cookieParser());
 
-// ── Logging ───────────────────────────────────────────────────
-app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
+// ── Logging (dev only) ─────────────────────────────────────────
+if (process.env.NODE_ENV !== "production") {
+  app.use(morgan("dev"));
+}
 
-// ── Static files ──────────────────────────────────────────────
-app.use("/uploads", express.static("uploads"));
+// ── Rate limiting ──────────────────────────────────────────────
+app.use(
+  "/api",
+  rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 200,
+    message: {
+      success: false,
+      message: "Too many requests. Please slow down.",
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
+  }),
+);
+app.use(
+  "/api/auth/login",
+  rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    message: {
+      success: false,
+      message: "Too many login attempts. Try again in 15 minutes.",
+    },
+  }),
+);
 
-// ── Rate limiting ─────────────────────────────────────────────
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 200,
-  message: { success: false, message: "Too many requests. Please slow down." },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
-  message: {
-    success: false,
-    message: "Too many login attempts. Please wait 15 minutes.",
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-app.use("/api", limiter);
-app.use("/api/auth/login", authLimiter);
-
-// ── Routes ────────────────────────────────────────────────────
+// ── Routes ─────────────────────────────────────────────────────
 app.use("/api/auth", authRoutes);
 app.use("/api/services", servicesRoutes);
 app.use("/api/portfolio", portfolioRoutes);
@@ -81,22 +79,30 @@ app.use("/api/contact", contactRoutes);
 app.use("/api/about", aboutRoutes);
 app.use("/api/pricing", pricingRoutes);
 
-// ── Health check ──────────────────────────────────────────────
+// ── Health check ───────────────────────────────────────────────
 app.get("/api/health", (req, res) => {
   res.json({
     success: true,
     message: "SaleemiExpert API is running 🚀",
     env: process.env.NODE_ENV,
+    time: new Date().toISOString(),
   });
 });
 
-// ── Error handlers ────────────────────────────────────────────
+// ── Error handlers ─────────────────────────────────────────────
 app.use(notFound);
 app.use(errorHandler);
 
-app.listen(PORT, () => {
-  console.log(`🚀 Server: http://localhost:${PORT}`);
-  console.log(`🌐 Client: ${CLIENT_URL}`);
-  console.log(`📦 Environment: ${process.env.NODE_ENV}`);
-  verifyEmailSetup();
-});
+// ── Local dev server ───────────────────────────────────────────
+// On Vercel this block is skipped — Vercel uses the export below
+if (process.env.NODE_ENV !== "production") {
+  const PORT = process.env.PORT || 5000;
+  app.listen(PORT, () => {
+    console.log(`🚀 Server: http://localhost:${PORT}`);
+    console.log(`🌐 Client: ${CLIENT_URL}`);
+    verifyEmailSetup();
+  });
+}
+
+// ── Export for Vercel serverless ───────────────────────────────
+export default app;
