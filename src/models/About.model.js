@@ -11,6 +11,7 @@ const aboutSchema = new mongoose.Schema(
     whatsapp: { type: String },
     location: { type: String },
     photo: { type: String },
+    cvUrl: { type: String }, // URL to CV/Resume PDF
     available: { type: Boolean, default: true },
 
     // ── Notification emails — all receive contact form emails ─
