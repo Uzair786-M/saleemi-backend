@@ -17,36 +17,36 @@ import pricingRoutes from "./routes/pricing.routes.js";
 import { errorHandler, notFound } from "./middleware/error.middleware.js";
 import { verifyEmailSetup } from "./controllers/contact.controller.js";
 
-// ── Connect DB ─────────────────────────────────────────────────
 connectDB();
 
 const app = express();
-const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
 
-// ── CORS ───────────────────────────────────────────────────────
-const allowedOrigins = [
-  process.env.CLIENT_URL,
-  "http://localhost:5173",
-  "http://localhost:3000",
-].filter(Boolean);
+// ── Trust proxy — required for Vercel + rate limiting ──────────
+app.set("trust proxy", 1);
 
+// ── Security ───────────────────────────────────────────────────
+app.use(helmet());
+
+// ── CORS — allow www and non-www + vercel previews ─────────────
 app.use(
   cors({
     origin: (origin, callback) => {
+      // Allow no-origin requests (mobile, Postman, curl)
       if (!origin) return callback(null, true);
-      // Allow any vercel.app subdomain
+      // Allow any vercel.app preview deployment
       if (origin.endsWith(".vercel.app")) return callback(null, true);
-      // Allow exact matches from env
-      if (allowedOrigins.includes(origin)) return callback(null, true);
-      // Allow www and non-www versions of CLIENT_URL
-      if (process.env.CLIENT_URL) {
-        const www = process.env.CLIENT_URL.replace("https://", "https://www.");
-        const nonWww = process.env.CLIENT_URL.replace(
-          "https://www.",
-          "https://",
-        );
-        if (origin === www || origin === nonWww) return callback(null, true);
-      }
+      // Allow localhost for development
+      if (origin.includes("localhost")) return callback(null, true);
+      // Allow exact CLIENT_URL match
+      const clientUrl = process.env.CLIENT_URL || "";
+      if (origin === clientUrl) return callback(null, true);
+      // Allow both www and non-www versions automatically
+      const withWww = clientUrl.replace("https://", "https://www.");
+      const withoutWww = clientUrl.replace("https://www.", "https://");
+      if (origin === withWww || origin === withoutWww)
+        return callback(null, true);
+      // Block everything else
+      console.log("CORS blocked:", origin);
       callback(new Error(`CORS blocked: ${origin}`));
     },
     credentials: true,
@@ -55,12 +55,12 @@ app.use(
   }),
 );
 
-// ── Parsing ────────────────────────────────────────────────────
+// ── Body parsing ───────────────────────────────────────────────
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// ── Logging (dev only) ─────────────────────────────────────────
+// ── Logging ────────────────────────────────────────────────────
 if (process.env.NODE_ENV !== "production") {
   app.use(morgan("dev"));
 }
@@ -79,6 +79,7 @@ app.use(
     legacyHeaders: false,
   }),
 );
+
 app.use(
   "/api/auth/login",
   rateLimit({
@@ -88,6 +89,8 @@ app.use(
       success: false,
       message: "Too many login attempts. Try again in 15 minutes.",
     },
+    standardHeaders: true,
+    legacyHeaders: false,
   }),
 );
 
@@ -115,12 +118,10 @@ app.use(notFound);
 app.use(errorHandler);
 
 // ── Local dev server ───────────────────────────────────────────
-// On Vercel this block is skipped — Vercel uses the export below
 if (process.env.NODE_ENV !== "production") {
   const PORT = process.env.PORT || 5000;
   app.listen(PORT, () => {
     console.log(`🚀 Server: http://localhost:${PORT}`);
-    console.log(`🌐 Client: ${CLIENT_URL}`);
     verifyEmailSetup();
   });
 }
