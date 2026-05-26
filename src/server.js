@@ -27,25 +27,14 @@ app.set("trust proxy", 1);
 // ── Security ───────────────────────────────────────────────────
 app.use(helmet());
 
-// ── CORS — allow www and non-www + vercel previews ─────────────
+// ── CORS ────────────────────────────────────────────────────────
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow no-origin requests (mobile, Postman, curl)
       if (!origin) return callback(null, true);
-      // Allow any vercel.app preview deployment
-      if (origin.endsWith(".vercel.app")) return callback(null, true);
-      // Allow localhost for development
       if (origin.includes("localhost")) return callback(null, true);
-      // Allow exact CLIENT_URL match
-      const clientUrl = process.env.CLIENT_URL || "";
-      if (origin === clientUrl) return callback(null, true);
-      // Allow both www and non-www versions automatically
-      const withWww = clientUrl.replace("https://", "https://www.");
-      const withoutWww = clientUrl.replace("https://www.", "https://");
-      if (origin === withWww || origin === withoutWww)
-        return callback(null, true);
-      // Block everything else
+      if (origin.endsWith(".vercel.app")) return callback(null, true);
+      if (origin.includes("saleemiexpert.com")) return callback(null, true);
       console.log("CORS blocked:", origin);
       callback(new Error(`CORS blocked: ${origin}`));
     },
