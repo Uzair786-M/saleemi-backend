@@ -33,13 +33,20 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (mobile apps, curl, Postman)
       if (!origin) return callback(null, true);
-      // Allow any vercel.app domain (covers all preview deployments)
+      // Allow any vercel.app subdomain
       if (origin.endsWith(".vercel.app")) return callback(null, true);
       // Allow exact matches from env
       if (allowedOrigins.includes(origin)) return callback(null, true);
-      // Block everything else
+      // Allow www and non-www versions of CLIENT_URL
+      if (process.env.CLIENT_URL) {
+        const www = process.env.CLIENT_URL.replace("https://", "https://www.");
+        const nonWww = process.env.CLIENT_URL.replace(
+          "https://www.",
+          "https://",
+        );
+        if (origin === www || origin === nonWww) return callback(null, true);
+      }
       callback(new Error(`CORS blocked: ${origin}`));
     },
     credentials: true,
