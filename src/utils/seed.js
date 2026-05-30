@@ -58,6 +58,18 @@ const aboutData = {
   whatsapp:  "+923001234567",
   location:  "Pakistan (Available Worldwide)",
   available: true,
+  stats: [
+    { value: 100, suffix: "+", label: "Projects Completed", icon: "🚀" },
+    { value: 5,   suffix: "+", label: "Years Experience",   icon: "⭐" },
+    { value: 24,  suffix: "/7",label: "Support Available",  icon: "🕐" },
+    { value: 50,  suffix: "+", label: "Happy Clients",      icon: "🤝" },
+  ],
+  socialLinks: [
+    { label: "Fiverr",   url: "https://fiverr.com/YOUR_USERNAME",              icon: "🟢", color: "#1dbf73" },
+    { label: "Upwork",   url: "https://upwork.com/freelancers/YOUR_USERNAME",  icon: "🟩", color: "#14a800" },
+    { label: "LinkedIn", url: "https://linkedin.com/in/YOUR_USERNAME",         icon: "💼", color: "#0a66c2" },
+    { label: "GitHub",   url: "https://github.com/YOUR_USERNAME",              icon: "🐙", color: "#6e40c9" },
+  ],
   skills: [
     { category: "E-commerce Platforms", items: [{ name: "Shopify", level: 95 }, { name: "WooCommerce", level: 92 }, { name: "WordPress", level: 85 }] },
     { category: "Data & Automation",    items: [{ name: "CSV Management", level: 98 }, { name: "Bulk Product Upload", level: 97 }, { name: "Variant Mapping", level: 93 }] },
