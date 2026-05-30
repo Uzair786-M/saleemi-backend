@@ -1,6 +1,6 @@
 import express   from "express";
 import { body }  from "express-validator";
-import { submitContact, getMessages, updateMessageStatus, replyToMessage, deleteMessage, sendTestEmail, sendCustomEmail } from "../controllers/contact.controller.js";
+import { submitContact, getMessages, updateMessageStatus, replyToMessage, deleteMessage, sendTestEmail, sendCustomEmail, getSentEmails, deleteSentEmail } from "../controllers/contact.controller.js";
 import { protect }  from "../middleware/auth.middleware.js";
 import { validate } from "../middleware/validate.middleware.js";
 
@@ -13,11 +13,13 @@ router.post("/",
 );
 
 // Admin only
-router.get("/",                  protect, getMessages);
-router.post("/test-email",       protect, sendTestEmail);
-router.post("/send-email",       protect, sendCustomEmail);
-router.put("/:id/status",        protect, updateMessageStatus);
-router.post("/:id/reply",        protect, replyToMessage);
-router.delete("/:id",            protect, deleteMessage);
+router.get("/",                      protect, getMessages);
+router.post("/test-email",           protect, sendTestEmail);
+router.post("/send-email",           protect, sendCustomEmail);
+router.get("/sent-emails",           protect, getSentEmails);
+router.delete("/sent-emails/:id",    protect, deleteSentEmail);
+router.put("/:id/status",            protect, updateMessageStatus);
+router.post("/:id/reply",            protect, replyToMessage);
+router.delete("/:id",                protect, deleteMessage);
 
 export default router;

@@ -355,31 +355,85 @@ export const sendCustomEmail = async (req, res) => {
       return res.status(400).json({ success: false, message: "Email not configured. Go to Email Settings first." });
     }
 
-    await transporter.sendMail({
-      from:    `"${senderName}" <${senderEmail}>`,
-      to:      recipients,
-      subject: subject,
-      html: `
-        <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden">
-          <div style="background:#050816;padding:24px">
-            <h2 style="color:#22d3ee;margin:0">${senderName}</h2>
+    let status = "sent";
+    let errorMsg = null;
+
+    try {
+      await transporter.sendMail({
+        from:    `"${senderName}" <${senderEmail}>`,
+        to:      recipients,
+        subject: subject,
+        html: `
+          <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden">
+            <div style="background:#050816;padding:24px">
+              <h2 style="color:#22d3ee;margin:0">${senderName}</h2>
+            </div>
+            <div style="padding:28px;background:#ffffff">
+              ${body.replace(/\n/g, "<br>")}
+            </div>
+            <div style="padding:16px 28px;background:#f9fafb;border-top:1px solid #e5e7eb">
+              <p style="color:#9ca3af;font-size:12px;margin:0">Sent from ${senderName} · saleemiexpert.com</p>
+            </div>
           </div>
-          <div style="padding:28px;background:#ffffff">
-            ${body.replace(/\n/g, "<br>")}
-          </div>
-          <div style="padding:16px 28px;background:#f9fafb;border-top:1px solid #e5e7eb">
-            <p style="color:#9ca3af;font-size:12px;margin:0">Sent from ${senderName} · saleemiexpert.com</p>
-          </div>
-        </div>
-      `,
+        `,
+      });
+    } catch (mailErr) {
+      status   = "failed";
+      errorMsg = mailErr.message;
+    }
+
+    // Always save record to database regardless of success/failure
+    const SentEmail = (await import("../models/SentEmail.model.js")).default;
+    const record = await SentEmail.create({
+      recipients,
+      subject,
+      body,
+      status,
+      error:  errorMsg,
+      sentBy: req.admin?.name || "Admin",
     });
+
+    if (status === "failed") {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to send: " + errorMsg,
+        record,
+      });
+    }
 
     res.json({
       success: true,
       message: `Email sent to ${recipients.length} recipient${recipients.length > 1 ? "s" : ""}!`,
       recipients,
+      record,
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Failed to send: " + error.message });
+    res.status(500).json({ success: false, message: "Error: " + error.message });
+  }
+};
+
+// ─────────────────────────────────────────────────────────────
+// GET /api/contact/sent-emails — Get sent email history (admin)
+// ─────────────────────────────────────────────────────────────
+export const getSentEmails = async (req, res) => {
+  try {
+    const SentEmail = (await import("../models/SentEmail.model.js")).default;
+    const emails = await SentEmail.find().sort({ createdAt: -1 }).limit(100);
+    res.json({ success: true, data: emails });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ─────────────────────────────────────────────────────────────
+// DELETE /api/contact/sent-emails/:id — Delete a sent email record
+// ─────────────────────────────────────────────────────────────
+export const deleteSentEmail = async (req, res) => {
+  try {
+    const SentEmail = (await import("../models/SentEmail.model.js")).default;
+    await SentEmail.findByIdAndDelete(req.params.id);
+    res.json({ success: true, message: "Record deleted." });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 };
