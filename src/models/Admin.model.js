@@ -1,30 +1,52 @@
 import mongoose from "mongoose";
-import bcrypt    from "bcryptjs";
+import bcrypt from "bcryptjs";
 
-const adminSchema = new mongoose.Schema({
-  name:     { type: String, required: true, trim: true },
-  email:    { type: String, required: true, unique: true, lowercase: true, trim: true },
-  password: { type: String, required: true, minlength: 6 },
-  role:     { type: String, default: "admin", enum: ["admin"] },
-}, { timestamps: true });
+export const ALL_PERMISSIONS = [
+  "dashboard",
+  "messages",
+  "mailbox",
+  "reviews",
+  "testimonials",
+  "portfolio",
+  "services",
+  "about",
+  "stats",
+  "pricing",
+  "email_settings",
+  "settings",
+  "team",
+];
 
-// Hash password before saving
+const adminSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true, trim: true },
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+      trim: true,
+    },
+    password: { type: String, required: true },
+    role: {
+      type: String,
+      default: "admin",
+      enum: ["superadmin", "admin", "member"],
+    },
+    permissions: { type: [String], default: ["dashboard", "messages"] },
+    isActive: { type: Boolean, default: true },
+  },
+  { timestamps: true },
+);
+
 adminSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next();
-  this.password = await bcrypt.hash(this.password, 12);
+  this.password = await bcrypt.hash(this.password, 10);
   next();
 });
 
-// Compare password
-adminSchema.methods.comparePassword = async function (enteredPassword) {
-  return bcrypt.compare(enteredPassword, this.password);
-};
-
-// Don't return password in JSON responses
-adminSchema.methods.toJSON = function () {
-  const obj = this.toObject();
-  delete obj.password;
-  return obj;
+adminSchema.methods.comparePassword = async function (pw) {
+  return bcrypt.compare(pw, this.password);
 };
 
 export default mongoose.model("Admin", adminSchema);
