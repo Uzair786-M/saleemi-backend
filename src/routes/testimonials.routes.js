@@ -11,14 +11,13 @@ import {
   deleteTestimonial,
 } from "../controllers/testimonials.controller.js";
 import { protect } from "../middleware/auth.middleware.js";
+import { requirePermission } from "../middleware/permission.middleware.js";
 import { validate } from "../middleware/validate.middleware.js";
 
 const router = express.Router();
 
-// ── Public routes ──────────────────────────────────────────────
-router.get("/", getTestimonials); // get approved only
-
-// Public review submission
+// Public
+router.get("/", getTestimonials);
 router.post(
   "/submit",
   [
@@ -26,22 +25,46 @@ router.post(
     body("review")
       .isLength({ min: 20 })
       .withMessage("Review must be at least 20 characters."),
-    body("rating")
-      .optional()
-      .isInt({ min: 1, max: 5 })
-      .withMessage("Rating must be 1–5."),
-    body("email").optional().isEmail().withMessage("Enter a valid email."),
+    body("rating").optional().isInt({ min: 1, max: 5 }),
+    body("email").optional().isEmail(),
   ],
   validate,
   submitReview,
 );
 
-// ── Admin routes ───────────────────────────────────────────────
-router.get("/pending", protect, getPendingTestimonials);
-router.put("/:id/approve", protect, approveTestimonial);
-router.put("/:id/reject", protect, rejectTestimonial);
-router.post("/", protect, createTestimonial);
-router.put("/:id", protect, updateTestimonial);
-router.delete("/:id", protect, deleteTestimonial);
+// Admin — reviews permission
+router.get(
+  "/pending",
+  protect,
+  requirePermission("reviews"),
+  getPendingTestimonials,
+);
+router.put(
+  "/:id/approve",
+  protect,
+  requirePermission("reviews"),
+  approveTestimonial,
+);
+router.put(
+  "/:id/reject",
+  protect,
+  requirePermission("reviews"),
+  rejectTestimonial,
+);
+
+// Admin — testimonials permission
+router.post("/", protect, requirePermission("testimonials"), createTestimonial);
+router.put(
+  "/:id",
+  protect,
+  requirePermission("testimonials"),
+  updateTestimonial,
+);
+router.delete(
+  "/:id",
+  protect,
+  requirePermission("testimonials"),
+  deleteTestimonial,
+);
 
 export default router;

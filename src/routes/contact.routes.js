@@ -1,25 +1,79 @@
-import express   from "express";
-import { body }  from "express-validator";
-import { submitContact, getMessages, updateMessageStatus, replyToMessage, deleteMessage, sendTestEmail, sendCustomEmail, getSentEmails, deleteSentEmail } from "../controllers/contact.controller.js";
-import { protect }  from "../middleware/auth.middleware.js";
+import express from "express";
+import { body } from "express-validator";
+import {
+  submitContact,
+  getMessages,
+  updateMessageStatus,
+  replyToMessage,
+  deleteMessage,
+  sendTestEmail,
+  sendCustomEmail,
+  getSentEmails,
+  deleteSentEmail,
+} from "../controllers/contact.controller.js";
+import { protect } from "../middleware/auth.middleware.js";
+import { requirePermission } from "../middleware/permission.middleware.js";
 import { validate } from "../middleware/validate.middleware.js";
 
 const router = express.Router();
 
 // Public
-router.post("/",
-  [ body("name").notEmpty().withMessage("Name is required."), body("email").isEmail().withMessage("Valid email is required."), body("subject").notEmpty().withMessage("Subject is required."), body("message").isLength({ min: 10 }).withMessage("Message must be at least 10 characters.") ],
-  validate, submitContact
+router.post(
+  "/",
+  [
+    body("name").notEmpty().withMessage("Name is required."),
+    body("email").isEmail().withMessage("Valid email is required."),
+    body("subject").notEmpty().withMessage("Subject is required."),
+    body("message")
+      .isLength({ min: 10 })
+      .withMessage("Message must be at least 10 characters."),
+  ],
+  validate,
+  submitContact,
 );
 
-// Admin only
-router.get("/",                      protect, getMessages);
-router.post("/test-email",           protect, sendTestEmail);
-router.post("/send-email",           protect, sendCustomEmail);
-router.get("/sent-emails",           protect, getSentEmails);
-router.delete("/sent-emails/:id",    protect, deleteSentEmail);
-router.put("/:id/status",            protect, updateMessageStatus);
-router.post("/:id/reply",            protect, replyToMessage);
-router.delete("/:id",                protect, deleteMessage);
+// Messages permission
+router.get("/", protect, requirePermission("messages"), getMessages);
+router.put(
+  "/:id/status",
+  protect,
+  requirePermission("messages"),
+  updateMessageStatus,
+);
+router.post(
+  "/:id/reply",
+  protect,
+  requirePermission("messages"),
+  replyToMessage,
+);
+router.delete("/:id", protect, requirePermission("messages"), deleteMessage);
+
+// Mailbox permission
+router.post(
+  "/send-email",
+  protect,
+  requirePermission("mailbox"),
+  sendCustomEmail,
+);
+router.get(
+  "/sent-emails",
+  protect,
+  requirePermission("mailbox"),
+  getSentEmails,
+);
+router.delete(
+  "/sent-emails/:id",
+  protect,
+  requirePermission("mailbox"),
+  deleteSentEmail,
+);
+
+// Email settings permission
+router.post(
+  "/test-email",
+  protect,
+  requirePermission("email_settings"),
+  sendTestEmail,
+);
 
 export default router;
