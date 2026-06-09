@@ -452,6 +452,8 @@ export const sendCustomEmail = async (req, res) => {
       status,
       error: errorMsg,
       sentBy: req.admin?.name || "Admin",
+      sentByEmail: req.admin?.email || "",
+      sentById: req.admin?._id || null,
     });
 
     if (status === "failed") {
@@ -481,8 +483,20 @@ export const sendCustomEmail = async (req, res) => {
 export const getSentEmails = async (req, res) => {
   try {
     const SentEmail = (await import("../models/SentEmail.model.js")).default;
-    const emails = await SentEmail.find().sort({ createdAt: -1 }).limit(100);
-    res.json({ success: true, data: emails });
+
+    // Superadmin sees ALL sent emails
+    // Other users only see emails THEY sent
+    const filter =
+      req.admin.role === "superadmin" ? {} : { sentById: req.admin._id };
+
+    const emails = await SentEmail.find(filter)
+      .sort({ createdAt: -1 })
+      .limit(100);
+    res.json({
+      success: true,
+      data: emails,
+      isFiltered: req.admin.role !== "superadmin",
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -494,6 +508,23 @@ export const getSentEmails = async (req, res) => {
 export const deleteSentEmail = async (req, res) => {
   try {
     const SentEmail = (await import("../models/SentEmail.model.js")).default;
+    const email = await SentEmail.findById(req.params.id);
+    if (!email)
+      return res
+        .status(404)
+        .json({ success: false, message: "Record not found." });
+
+    // Only superadmin or the sender can delete
+    const isSuperAdmin = req.admin.role === "superadmin";
+    const isOwner = email.sentById?.toString() === req.admin._id.toString();
+
+    if (!isSuperAdmin && !isOwner) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only delete your own email records.",
+      });
+    }
+
     await SentEmail.findByIdAndDelete(req.params.id);
     res.json({ success: true, message: "Record deleted." });
   } catch (error) {
