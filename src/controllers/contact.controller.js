@@ -243,10 +243,35 @@ export const submitContact = async (req, res) => {
 export const getMessages = async (req, res) => {
   try {
     const { status } = req.query;
-    const filter = status && status !== "all" ? { status } : {};
+    let filter = status && status !== "all" ? { status } : {};
+
+    // Superadmin sees ALL messages
+    // Others only see messages assigned to them OR unassigned messages
+    if (req.admin.role !== "superadmin") {
+      filter = {
+        ...filter,
+        $or: [
+          { assignedTo: req.admin._id }, // assigned to this user
+          { assignedTo: null }, // unassigned — visible to all
+        ],
+      };
+    }
+
     const messages = await Contact.find(filter).sort({ createdAt: -1 });
-    const unreadCount = await Contact.countDocuments({ status: "unread" });
-    res.json({ success: true, data: messages, unreadCount });
+    const unreadCount = await Contact.countDocuments(
+      req.admin.role === "superadmin"
+        ? { status: "unread" }
+        : {
+            status: "unread",
+            $or: [{ assignedTo: req.admin._id }, { assignedTo: null }],
+          },
+    );
+    res.json({
+      success: true,
+      data: messages,
+      unreadCount,
+      isFiltered: req.admin.role !== "superadmin",
+    });
   } catch (error) {
     res
       .status(500)
@@ -255,8 +280,38 @@ export const getMessages = async (req, res) => {
 };
 
 // ─────────────────────────────────────────────────────────────
-// PUT /api/contact/:id/status
+// PUT /api/contact/:id/assign — Assign message to a team member (superadmin only)
 // ─────────────────────────────────────────────────────────────
+export const assignMessage = async (req, res) => {
+  try {
+    if (req.admin.role !== "superadmin") {
+      return res.status(403).json({
+        success: false,
+        message: "Only super admin can assign messages.",
+      });
+    }
+    const { assignedTo, assignedToName } = req.body;
+    const msg = await Contact.findByIdAndUpdate(
+      req.params.id,
+      {
+        assignedTo: assignedTo || null,
+        assignedToName: assignedToName || null,
+      },
+      { new: true },
+    );
+    if (!msg)
+      return res
+        .status(404)
+        .json({ success: false, message: "Message not found." });
+    res.json({
+      success: true,
+      data: msg,
+      message: assignedTo ? `Assigned to ${assignedToName}` : "Unassigned",
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
 export const updateMessageStatus = async (req, res) => {
   try {
     const { status } = req.body;

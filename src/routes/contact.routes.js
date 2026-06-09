@@ -3,6 +3,7 @@ import { body } from "express-validator";
 import {
   submitContact,
   getMessages,
+  assignMessage,
   updateMessageStatus,
   replyToMessage,
   deleteMessage,
@@ -34,6 +35,12 @@ router.post(
 
 // Messages permission
 router.get("/", protect, requirePermission("messages"), getMessages);
+router.put(
+  "/:id/assign",
+  protect,
+  requirePermission("messages"),
+  assignMessage,
+);
 router.put(
   "/:id/status",
   protect,
