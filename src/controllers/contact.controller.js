@@ -245,15 +245,12 @@ export const getMessages = async (req, res) => {
     const { status } = req.query;
     let filter = status && status !== "all" ? { status } : {};
 
-    // Superadmin sees ALL messages
-    // Others only see messages assigned to them OR unassigned messages
+    // Superadmin sees ALL messages including unassigned
+    // Others ONLY see messages explicitly assigned to them
     if (req.admin.role !== "superadmin") {
       filter = {
         ...filter,
-        $or: [
-          { assignedTo: req.admin._id }, // assigned to this user
-          { assignedTo: null }, // unassigned — visible to all
-        ],
+        assignedTo: req.admin._id, // ONLY assigned to this specific user
       };
     }
 
@@ -261,10 +258,7 @@ export const getMessages = async (req, res) => {
     const unreadCount = await Contact.countDocuments(
       req.admin.role === "superadmin"
         ? { status: "unread" }
-        : {
-            status: "unread",
-            $or: [{ assignedTo: req.admin._id }, { assignedTo: null }],
-          },
+        : { status: "unread", assignedTo: req.admin._id },
     );
     res.json({
       success: true,
