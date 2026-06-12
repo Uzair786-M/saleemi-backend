@@ -4,13 +4,13 @@ import {
   createMember,
   updateMember,
   deleteMember,
-  getPermissions,
+  // getPermissions,
 } from "../controllers/team.controller.js";
 import { protect } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
 
-router.get("/permissions", protect, getPermissions);
+// router.get("/permissions", protect, getPermissions);
 router.get("/", protect, getTeam);
 router.post("/", protect, createMember);
 router.put("/:id", protect, updateMember);
