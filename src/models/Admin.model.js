@@ -35,6 +35,10 @@ const adminSchema = new mongoose.Schema(
     },
     permissions: { type: [String], default: ["dashboard", "messages"] },
     isActive: { type: Boolean, default: true },
+    // Each member sends emails from their own address
+    // Password stored in .env as EMAIL_PASS_<USERID> or falls back to global EMAIL_PASS
+    smtpEmail: { type: String, default: "" }, // e.g. asifmadni@saleemiexpert.com
+    smtpName: { type: String, default: "" }, // Display name in sent emails
   },
   { timestamps: true },
 );

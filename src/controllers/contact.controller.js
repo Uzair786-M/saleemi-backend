@@ -340,8 +340,10 @@ export const replyToMessage = async (req, res) => {
 
     const about = await About.findOne();
     const transporter = buildTransporter(about?.smtpConfig);
-    const senderEmail = about?.smtpConfig?.user || process.env.EMAIL_USER;
-    const senderName = about?.name || "SaleemiExpert";
+    const senderEmail =
+      req.admin?.smtpEmail || about?.smtpConfig?.user || process.env.EMAIL_USER;
+    const senderName =
+      req.admin?.smtpName || req.admin?.name || about?.name || "SaleemiExpert";
 
     await transporter.sendMail({
       from: `"${senderName}" <${senderEmail}>`,
@@ -455,8 +457,12 @@ export const sendCustomEmail = async (req, res) => {
 
     const about = await About.findOne();
     const transporter = buildTransporter(about?.smtpConfig);
-    const senderEmail = about?.smtpConfig?.user || process.env.EMAIL_USER;
-    const senderName = about?.name || "SaleemiExpert";
+
+    // Use sender's own email address if configured, else fall back to global
+    const senderEmail =
+      req.admin?.smtpEmail || about?.smtpConfig?.user || process.env.EMAIL_USER;
+    const senderName =
+      req.admin?.smtpName || req.admin?.name || about?.name || "SaleemiExpert";
 
     if (!senderEmail || !process.env.EMAIL_PASS) {
       return res.status(400).json({

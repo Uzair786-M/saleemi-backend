@@ -43,6 +43,8 @@ export const createMember = async (req, res) => {
       password,
       role: role || "member",
       permissions: permissions || ["dashboard", "messages"],
+      smtpEmail: smtpEmail || email, // default to their login email
+      smtpName: smtpName || name,
       invitedBy: req.admin._id,
     });
     res.status(201).json({
@@ -64,13 +66,12 @@ export const updateMember = async (req, res) => {
         message: "Only the super admin can update team members.",
       });
     }
-    const { name, permissions, role, isActive } = req.body;
+    const { name, permissions, role, isActive, smtpEmail, smtpName } = req.body;
     const member = await Admin.findById(req.params.id);
     if (!member)
       return res
         .status(404)
         .json({ success: false, message: "Member not found." });
-    // Prevent modifying superadmin accounts
     if (member.role === "superadmin") {
       return res.status(403).json({
         success: false,
@@ -81,6 +82,8 @@ export const updateMember = async (req, res) => {
     if (role !== undefined) member.role = role;
     if (isActive !== undefined) member.isActive = isActive;
     if (permissions !== undefined) member.permissions = permissions;
+    if (smtpEmail !== undefined) member.smtpEmail = smtpEmail;
+    if (smtpName !== undefined) member.smtpName = smtpName;
     await member.save();
     res.json({
       success: true,
@@ -119,7 +122,37 @@ export const deleteMember = async (req, res) => {
   }
 };
 
-// ── GET /api/team/permissions — get all available permissions ─
-export const getPermissions = async (req, res) => {
-  res.json({ success: true, data: ALL_PERMISSIONS });
+// ── PUT /api/team/:id/reset-password ─────────────────────────
+export const resetMemberPassword = async (req, res) => {
+  try {
+    if (req.admin.role !== "superadmin") {
+      return res.status(403).json({
+        success: false,
+        message: "Only the super admin can reset passwords.",
+      });
+    }
+    const { newPassword } = req.body;
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 6 characters.",
+      });
+    }
+    const member = await Admin.findById(req.params.id);
+    if (!member)
+      return res
+        .status(404)
+        .json({ success: false, message: "Member not found." });
+    if (member.role === "superadmin") {
+      return res.status(403).json({
+        success: false,
+        message: "Cannot reset super admin password here.",
+      });
+    }
+    member.password = newPassword;
+    await member.save(); // pre-save hook hashes it
+    res.json({ success: true, message: `Password reset for ${member.name}.` });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 };
