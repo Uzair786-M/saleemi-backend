@@ -8,77 +8,33 @@ import nodemailer from "nodemailer";
 // Password/API key always comes from .env — never stored in DB
 // ─────────────────────────────────────────────────────────────
 
-const buildTransporter = (smtpConfig) => {
-  const service = (
-    smtpConfig?.service ||
-    process.env.EMAIL_SERVICE ||
-    "gmail"
-  ).toLowerCase();
-  const user = smtpConfig?.user || process.env.EMAIL_USER;
+// ─────────────────────────────────────────────────────────────
+// TRANSPORTER FACTORY
+// ALL connection settings (host, port, user, pass) come from .env
+// ONLY — the database/admin-panel smtpConfig is NEVER used for
+// the actual SMTP connection. This guarantees consistency with
+// the verified working .env credentials.
+// ─────────────────────────────────────────────────────────────
+
+const buildTransporter = () => {
+  const host = process.env.EMAIL_HOST;
+  const port = Number(process.env.EMAIL_PORT) || 587;
+  const secure = process.env.EMAIL_SECURE === "true" || port === 465;
+  const user = process.env.EMAIL_USER;
   const pass = process.env.EMAIL_PASS;
 
-  // ── Gmail ─────────────────────────────────────────────────
-  if (service === "gmail") {
-    return nodemailer.createTransport({
-      service: "gmail",
-      auth: { user, pass },
-    });
+  if (!host || !user || !pass) {
+    throw new Error(
+      "Email is not configured. Set EMAIL_HOST, EMAIL_USER, EMAIL_PASS in environment variables.",
+    );
   }
-
-  // ── Outlook / Hotmail ─────────────────────────────────────
-  if (service === "outlook" || service === "hotmail") {
-    return nodemailer.createTransport({
-      host: "smtp-mail.outlook.com",
-      port: 587,
-      secure: false,
-      auth: { user, pass },
-    });
-  }
-
-  // ── Yahoo ──────────────────────────────────────────────────
-  if (service === "yahoo") {
-    return nodemailer.createTransport({
-      service: "yahoo",
-      auth: { user, pass },
-    });
-  }
-
-  // ── SendGrid ───────────────────────────────────────────────
-  if (service === "sendgrid") {
-    return nodemailer.createTransport({
-      host: "smtp.sendgrid.net",
-      port: 587,
-      secure: false,
-      auth: { user: "apikey", pass },
-    });
-  }
-
-  // ── Mailgun ────────────────────────────────────────────────
-  if (service === "mailgun") {
-    return nodemailer.createTransport({
-      host: process.env.MAILGUN_HOST || "smtp.mailgun.org",
-      port: 587,
-      secure: false,
-      auth: { user, pass },
-    });
-  }
-
-  // ── Custom SMTP — info@saleemiexpert.com via cPanel/Namecheap ──
-  // DB config takes priority, falls back to .env
-  const host =
-    smtpConfig?.host ||
-    process.env.EMAIL_HOST ||
-    `mail.${(user || "").split("@")[1] || "yourdomain.com"}`;
-  const port = smtpConfig?.port || Number(process.env.EMAIL_PORT) || 587;
-  const secure =
-    smtpConfig?.secure || process.env.EMAIL_SECURE === "true" || port === 465;
 
   return nodemailer.createTransport({
     host,
     port,
     secure,
     auth: { user, pass },
-    tls: { rejectUnauthorized: false }, // needed for shared hosting
+    tls: { rejectUnauthorized: false },
   });
 };
 
@@ -121,7 +77,7 @@ export const verifyEmailSetup = async () => {
   }
   try {
     const about = await About.findOne().catch(() => null);
-    const transporter = buildTransporter(about?.smtpConfig);
+    const transporter = buildTransporter();
     await transporter.verify();
     const recipients = await getNotifyEmails();
     console.log(
@@ -193,7 +149,7 @@ export const submitContact = async (req, res) => {
     setImmediate(async () => {
       try {
         const about = await About.findOne();
-        const transporter = buildTransporter(about?.smtpConfig);
+        const transporter = buildTransporter();
         const recipients = await getNotifyEmails();
 
         if (!recipients.length) {
@@ -201,7 +157,7 @@ export const submitContact = async (req, res) => {
           return;
         }
 
-        const senderEmail = about?.smtpConfig?.user || process.env.EMAIL_USER;
+        const senderEmail = process.env.EMAIL_USER;
 
         await transporter.sendMail({
           from: `"SaleemiExpert Website" <${senderEmail}>`,
@@ -339,9 +295,8 @@ export const replyToMessage = async (req, res) => {
         .json({ success: false, message: "Message not found." });
 
     const about = await About.findOne();
-    const transporter = buildTransporter(about?.smtpConfig);
-    const senderEmail =
-      req.admin?.smtpEmail || about?.smtpConfig?.user || process.env.EMAIL_USER;
+    const transporter = buildTransporter();
+    const senderEmail = req.admin?.smtpEmail || process.env.EMAIL_USER;
     const senderName =
       req.admin?.smtpName || req.admin?.name || about?.name || "SaleemiExpert";
 
@@ -402,9 +357,9 @@ export const deleteMessage = async (req, res) => {
 export const sendTestEmail = async (req, res) => {
   try {
     const about = await About.findOne();
-    const transporter = buildTransporter(about?.smtpConfig);
+    const transporter = buildTransporter();
     const recipients = await getNotifyEmails();
-    const senderEmail = about?.smtpConfig?.user || process.env.EMAIL_USER;
+    const senderEmail = process.env.EMAIL_USER;
 
     if (!recipients.length) {
       return res.status(400).json({
@@ -456,11 +411,10 @@ export const sendCustomEmail = async (req, res) => {
     }
 
     const about = await About.findOne();
-    const transporter = buildTransporter(about?.smtpConfig);
+    const transporter = buildTransporter();
 
     // Use sender's own email address if configured, else fall back to global
-    const senderEmail =
-      req.admin?.smtpEmail || about?.smtpConfig?.user || process.env.EMAIL_USER;
+    const senderEmail = req.admin?.smtpEmail || process.env.EMAIL_USER;
     const senderName =
       req.admin?.smtpName || req.admin?.name || about?.name || "SaleemiExpert";
 
