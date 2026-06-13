@@ -100,16 +100,61 @@ app.get("/api/health", (req, res) => {
 
 // ── Debug — check env vars (no secrets exposed) ──────────────────
 app.get("/api/debug-env", (req, res) => {
+  const host = process.env.EMAIL_HOST;
+  const port = Number(process.env.EMAIL_PORT) || 587;
+  const secure = process.env.EMAIL_SECURE === "true" || port === 465;
+  const user = process.env.EMAIL_USER;
+  const pass = process.env.EMAIL_PASS;
+
   res.json({
-    EMAIL_HOST: process.env.EMAIL_HOST || "❌ NOT SET",
-    EMAIL_PORT: process.env.EMAIL_PORT || "❌ NOT SET",
-    EMAIL_SECURE: process.env.EMAIL_SECURE || "❌ NOT SET",
-    EMAIL_USER: process.env.EMAIL_USER || "❌ NOT SET",
-    EMAIL_PASS_SET: !!process.env.EMAIL_PASS,
-    EMAIL_PASS_LENGTH: process.env.EMAIL_PASS?.length || 0,
+    EMAIL_HOST: host || "❌ NOT SET",
+    EMAIL_PORT: port,
+    EMAIL_SECURE: secure,
+    EMAIL_USER: user || "❌ NOT SET",
+    EMAIL_PASS_SET: !!pass,
+    EMAIL_PASS_LENGTH: pass?.length || 0,
     EMAIL_TO: process.env.EMAIL_TO || "❌ NOT SET",
     NODE_ENV: process.env.NODE_ENV,
+    wouldBuildTransporterThrow: !host || !user || !pass,
+    DEPLOY_MARKER: "v2-fixed-2026-06-12",
   });
+});
+
+// ── Debug — actually try sending a test email right here ──────────
+app.get("/api/debug-send", async (req, res) => {
+  try {
+    const nodemailer = (await import("nodemailer")).default;
+    const host = process.env.EMAIL_HOST;
+    const port = Number(process.env.EMAIL_PORT) || 587;
+    const secure = process.env.EMAIL_SECURE === "true" || port === 465;
+    const user = process.env.EMAIL_USER;
+    const pass = process.env.EMAIL_PASS;
+
+    const transporter = nodemailer.createTransport({
+      host,
+      port,
+      secure,
+      auth: { user, pass },
+      tls: { rejectUnauthorized: false },
+    });
+
+    await transporter.verify();
+    const info = await transporter.sendMail({
+      from: user,
+      to: user,
+      subject: "Debug Test from /api/debug-send",
+      text: "If you see this, SMTP works on Vercel.",
+    });
+
+    res.json({ success: true, messageId: info.messageId });
+  } catch (err) {
+    res.json({
+      success: false,
+      error: err.message,
+      code: err.code,
+      command: err.command,
+    });
+  }
 });
 
 // ── Error handlers ─────────────────────────────────────────────
