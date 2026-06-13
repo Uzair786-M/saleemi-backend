@@ -356,11 +356,37 @@ export const deleteMessage = async (req, res) => {
 // ─────────────────────────────────────────────────────────────
 export const sendTestEmail = async (req, res) => {
   try {
-    const about = await About.findOne();
-    const transporter = buildTransporter();
-    const recipients = await getNotifyEmails();
-    const senderEmail = process.env.EMAIL_USER;
+    const nodemailer = (await import("nodemailer")).default;
 
+    const host = process.env.EMAIL_HOST;
+    const port = Number(process.env.EMAIL_PORT) || 587;
+    const secure = process.env.EMAIL_SECURE === "true" || port === 465;
+    const user = process.env.EMAIL_USER;
+    const pass = process.env.EMAIL_PASS;
+
+    if (!host || !user || !pass) {
+      return res.status(500).json({
+        success: false,
+        message:
+          "Email is not configured. Set EMAIL_HOST, EMAIL_USER, EMAIL_PASS in environment variables.",
+        debug: {
+          host: !!host,
+          user: !!user,
+          pass: !!pass,
+          VERSION: "v3-self-contained",
+        },
+      });
+    }
+
+    const transporter = nodemailer.createTransport({
+      host,
+      port,
+      secure,
+      auth: { user, pass },
+      tls: { rejectUnauthorized: false },
+    });
+
+    const recipients = await getNotifyEmails();
     if (!recipients.length) {
       return res.status(400).json({
         success: false,
@@ -370,7 +396,7 @@ export const sendTestEmail = async (req, res) => {
     }
 
     await transporter.sendMail({
-      from: `"SaleemiExpert" <${senderEmail}>`,
+      from: `"SaleemiExpert" <${user}>`,
       to: recipients,
       subject: "✅ Test Email — SaleemiExpert Email Setup Working",
       html: `
@@ -380,19 +406,24 @@ export const sendTestEmail = async (req, res) => {
           </div>
           <div style="padding:24px;background:#ffffff">
             <p style="color:#374151">Your SaleemiExpert email notifications are configured correctly.</p>
-            <p style="color:#374151"><strong>Service:</strong> ${about?.smtpConfig?.service || "gmail"}</p>
-            <p style="color:#374151"><strong>Sender:</strong> ${senderEmail}</p>
+            <p style="color:#374151"><strong>Sender:</strong> ${user}</p>
             <p style="color:#374151"><strong>Recipients (${recipients.length}):</strong> ${recipients.join(", ")}</p>
             <p style="color:#9ca3af;font-size:13px;margin-top:20px">Sent at ${new Date().toLocaleString()}</p>
           </div>
         </div>`,
     });
 
-    res.json({ success: true, message: "Test email sent!", recipients });
+    res.json({
+      success: true,
+      message: "Test email sent! (v3-self-contained)",
+      recipients,
+    });
   } catch (error) {
-    res
-      .status(500)
-      .json({ success: false, message: "Test failed: " + error.message });
+    res.status(500).json({
+      success: false,
+      message: "Test failed: " + error.message,
+      code: error.code,
+    });
   }
 };
 
