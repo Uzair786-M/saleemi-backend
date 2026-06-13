@@ -98,6 +98,20 @@ app.get("/api/health", (req, res) => {
   });
 });
 
+// ── Debug — check env vars (no secrets exposed) ──────────────────
+app.get("/api/debug-env", (req, res) => {
+  res.json({
+    EMAIL_HOST: process.env.EMAIL_HOST || "❌ NOT SET",
+    EMAIL_PORT: process.env.EMAIL_PORT || "❌ NOT SET",
+    EMAIL_SECURE: process.env.EMAIL_SECURE || "❌ NOT SET",
+    EMAIL_USER: process.env.EMAIL_USER || "❌ NOT SET",
+    EMAIL_PASS_SET: !!process.env.EMAIL_PASS,
+    EMAIL_PASS_LENGTH: process.env.EMAIL_PASS?.length || 0,
+    EMAIL_TO: process.env.EMAIL_TO || "❌ NOT SET",
+    NODE_ENV: process.env.NODE_ENV,
+  });
+});
+
 // ── Error handlers ─────────────────────────────────────────────
 app.use(notFound);
 app.use(errorHandler);
