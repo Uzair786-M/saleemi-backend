@@ -1,5 +1,5 @@
-import Contact   from "../models/Contact.model.js";
-import About     from "../models/About.model.js";
+import Contact from "../models/Contact.model.js";
+import About from "../models/About.model.js";
 import nodemailer from "nodemailer";
 
 // ─────────────────────────────────────────────────────────────
@@ -17,14 +17,16 @@ import nodemailer from "nodemailer";
 // ─────────────────────────────────────────────────────────────
 
 const buildTransporter = () => {
-  const host   = process.env.EMAIL_HOST;
-  const port   = Number(process.env.EMAIL_PORT) || 587;
+  const host = process.env.EMAIL_HOST;
+  const port = Number(process.env.EMAIL_PORT) || 587;
   const secure = process.env.EMAIL_SECURE === "true" || port === 465;
-  const user   = process.env.EMAIL_USER;
-  const pass   = process.env.EMAIL_PASS;
+  const user = process.env.EMAIL_USER;
+  const pass = process.env.EMAIL_PASS;
 
   if (!host || !user || !pass) {
-    throw new Error("Email is not configured. Set EMAIL_HOST, EMAIL_USER, EMAIL_PASS in environment variables.");
+    throw new Error(
+      "Email is not configured. Set EMAIL_HOST, EMAIL_USER, EMAIL_PASS in environment variables.",
+    );
   }
 
   return nodemailer.createTransport({
@@ -32,7 +34,7 @@ const buildTransporter = () => {
     port,
     secure,
     auth: { user, pass },
-    tls:  { rejectUnauthorized: false },
+    tls: { rejectUnauthorized: false },
   });
 };
 
@@ -47,14 +49,16 @@ const getNotifyEmails = async () => {
 
     // Use notifyEmails array from DB if configured
     if (about?.notifyEmails?.length > 0) {
-      return about.notifyEmails.map(e => e.email).filter(Boolean);
+      return about.notifyEmails.map((e) => e.email).filter(Boolean);
     }
 
     // Fall back to owner email from About doc
     if (about?.email) return [about.email];
 
     // Final fallback — .env values
-    const envEmails = [process.env.EMAIL_TO, process.env.EMAIL_USER].filter(Boolean);
+    const envEmails = [process.env.EMAIL_TO, process.env.EMAIL_USER].filter(
+      Boolean,
+    );
     return envEmails;
   } catch {
     return [process.env.EMAIL_TO || process.env.EMAIL_USER].filter(Boolean);
@@ -66,15 +70,19 @@ const getNotifyEmails = async () => {
 // ─────────────────────────────────────────────────────────────
 export const verifyEmailSetup = async () => {
   if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-    console.log("⚠️  Email not configured — set EMAIL_USER and EMAIL_PASS in .env");
+    console.log(
+      "⚠️  Email not configured — set EMAIL_USER and EMAIL_PASS in .env",
+    );
     return false;
   }
   try {
-    const about       = await About.findOne().catch(() => null);
+    const about = await About.findOne().catch(() => null);
     const transporter = buildTransporter();
     await transporter.verify();
-    const recipients  = await getNotifyEmails();
-    console.log(`✅ Email ready (${(about?.smtpConfig?.service || process.env.EMAIL_SERVICE || "gmail")})`);
+    const recipients = await getNotifyEmails();
+    console.log(
+      `✅ Email ready (${about?.smtpConfig?.service || process.env.EMAIL_SERVICE || "gmail"})`,
+    );
     console.log(`📬 Notifications → ${recipients.join(", ")}`);
     return true;
   } catch (err) {
@@ -87,7 +95,13 @@ export const verifyEmailSetup = async () => {
 // ─────────────────────────────────────────────────────────────
 // EMAIL TEMPLATE
 // ─────────────────────────────────────────────────────────────
-const buildContactEmailHtml = ({ name, email, subject, message, recipientCount }) => `
+const buildContactEmailHtml = ({
+  name,
+  email,
+  subject,
+  message,
+  recipientCount,
+}) => `
 <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden">
   <div style="background:#050816;padding:24px">
     <h2 style="color:#22d3ee;margin:0 0 4px">📩 New Contact Message</h2>
@@ -134,7 +148,7 @@ export const submitContact = async (req, res) => {
     // 2. Send emails in background — don't block the response
     setImmediate(async () => {
       try {
-        const about      = await About.findOne();
+        const about = await About.findOne();
         const transporter = buildTransporter();
         const recipients = await getNotifyEmails();
 
@@ -146,11 +160,17 @@ export const submitContact = async (req, res) => {
         const senderEmail = process.env.EMAIL_USER;
 
         await transporter.sendMail({
-          from:    `"SaleemiExpert Website" <${senderEmail}>`,
-          to:      recipients,           // ← array — all recipients get it at once
-          replyTo: email,                // ← reply goes directly to client
+          from: `"SaleemiExpert Website" <${senderEmail}>`,
+          to: recipients, // ← array — all recipients get it at once
+          replyTo: email, // ← reply goes directly to client
           subject: `📩 New Message: ${subject}`,
-          html:    buildContactEmailHtml({ name, email, subject, message, recipientCount: recipients.length }),
+          html: buildContactEmailHtml({
+            name,
+            email,
+            subject,
+            message,
+            recipientCount: recipients.length,
+          }),
         });
 
         console.log(`✅ Contact email sent to: ${recipients.join(", ")}`);
@@ -161,11 +181,15 @@ export const submitContact = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: "Message sent successfully! I'll get back to you within 24 hours.",
+      message:
+        "Message sent successfully! I'll get back to you within 24 hours.",
       data: { id: contact._id },
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Failed to send message. Please try again." });
+    res.status(500).json({
+      success: false,
+      message: "Failed to send message. Please try again.",
+    });
   }
 };
 
@@ -182,15 +206,15 @@ export const getMessages = async (req, res) => {
     if (req.admin.role !== "superadmin") {
       filter = {
         ...filter,
-        assignedTo: req.admin._id,  // ONLY assigned to this specific user
+        assignedTo: req.admin._id, // ONLY assigned to this specific user
       };
     }
 
-    const messages    = await Contact.find(filter).sort({ createdAt: -1 });
+    const messages = await Contact.find(filter).sort({ createdAt: -1 });
     const unreadCount = await Contact.countDocuments(
       req.admin.role === "superadmin"
         ? { status: "unread" }
-        : { status: "unread", assignedTo: req.admin._id }
+        : { status: "unread", assignedTo: req.admin._id },
     );
     res.json({
       success: true,
@@ -199,7 +223,9 @@ export const getMessages = async (req, res) => {
       isFiltered: req.admin.role !== "superadmin",
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Failed to load messages." });
+    res
+      .status(500)
+      .json({ success: false, message: "Failed to load messages." });
   }
 };
 
@@ -209,20 +235,30 @@ export const getMessages = async (req, res) => {
 export const assignMessage = async (req, res) => {
   try {
     if (req.admin.role !== "superadmin") {
-      return res.status(403).json({ success: false, message: "Only super admin can assign messages." });
+      return res.status(403).json({
+        success: false,
+        message: "Only super admin can assign messages.",
+      });
     }
     const { assignedTo, assignedToName, assignedToEmail } = req.body;
     const msg = await Contact.findByIdAndUpdate(
       req.params.id,
       {
-        assignedTo:      assignedTo      || null,
-        assignedToName:  assignedToName  || null,
+        assignedTo: assignedTo || null,
+        assignedToName: assignedToName || null,
         assignedToEmail: assignedToEmail || null,
       },
-      { new: true }
+      { new: true },
     );
-    if (!msg) return res.status(404).json({ success: false, message: "Message not found." });
-    res.json({ success: true, data: msg, message: assignedTo ? `Assigned to ${assignedToName}` : "Unassigned" });
+    if (!msg)
+      return res
+        .status(404)
+        .json({ success: false, message: "Message not found." });
+    res.json({
+      success: true,
+      data: msg,
+      message: assignedTo ? `Assigned to ${assignedToName}` : "Unassigned",
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -230,11 +266,20 @@ export const assignMessage = async (req, res) => {
 export const updateMessageStatus = async (req, res) => {
   try {
     const { status } = req.body;
-    const msg = await Contact.findByIdAndUpdate(req.params.id, { status }, { new: true });
-    if (!msg) return res.status(404).json({ success: false, message: "Message not found." });
+    const msg = await Contact.findByIdAndUpdate(
+      req.params.id,
+      { status },
+      { new: true },
+    );
+    if (!msg)
+      return res
+        .status(404)
+        .json({ success: false, message: "Message not found." });
     res.json({ success: true, data: msg });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Failed to update status." });
+    res
+      .status(500)
+      .json({ success: false, message: "Failed to update status." });
   }
 };
 
@@ -245,36 +290,47 @@ export const replyToMessage = async (req, res) => {
   try {
     const { replyText } = req.body;
     if (!replyText?.trim()) {
-      return res.status(400).json({ success: false, message: "Reply text is required." });
+      return res
+        .status(400)
+        .json({ success: false, message: "Reply text is required." });
     }
 
     const msg = await Contact.findById(req.params.id);
-    if (!msg) return res.status(404).json({ success: false, message: "Message not found." });
+    if (!msg)
+      return res
+        .status(404)
+        .json({ success: false, message: "Message not found." });
 
     // Use member's smtpEmail if set, otherwise fallback to global EMAIL_USER
     const senderEmail = req.admin?.smtpEmail || process.env.EMAIL_USER;
-    const senderName  = req.admin?.smtpName  || req.admin?.name || "SaleemiExpert";
+    const senderName =
+      req.admin?.smtpName || req.admin?.name || "SaleemiExpert";
 
     if (!senderEmail) {
-      return res.status(500).json({ success: false, message: "No sender email configured. Set smtpEmail in Team settings." });
+      return res.status(500).json({
+        success: false,
+        message: "No sender email configured. Set smtpEmail in Team settings.",
+      });
     }
 
-    const nodemailer  = (await import("nodemailer")).default;
     const transporter = nodemailer.createTransport({
-      host:   process.env.EMAIL_HOST,
-      port:   Number(process.env.EMAIL_PORT) || 587,
+      host: process.env.EMAIL_HOST,
+      port: Number(process.env.EMAIL_PORT) || 587,
       secure: process.env.EMAIL_SECURE === "true",
-      auth:   { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
-      tls:    { rejectUnauthorized: false },
+      auth: {
+        // Authenticate as the member's own email if possible
+        // All Zoho org accounts share same SMTP server
+        user: senderEmail,
+        pass: process.env.EMAIL_PASS,
+      },
+      tls: { rejectUnauthorized: false },
     });
 
     await transporter.sendMail({
-      from:     `"${senderName}" <${process.env.EMAIL_USER}>`,
-      sender:   process.env.EMAIL_USER,
-      // Reply-To is the member's own email — so client replies go directly to them
-      replyTo:  `"${senderName}" <${senderEmail}>`,
-      to:       msg.email,
-      subject:  `Re: ${msg.subject}`,
+      from: `"${senderName}" <${senderEmail}>`,
+      replyTo: `"${senderName}" <${senderEmail}>`,
+      to: msg.email,
+      subject: `Re: ${msg.subject}`,
       html: `
         <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden">
           <div style="background:#050816;padding:24px">
@@ -295,26 +351,33 @@ export const replyToMessage = async (req, res) => {
 
     // Save reply to conversation thread
     const replyEntry = {
-      text:        replyText,
-      sentBy:      senderName,
+      text: replyText,
+      sentBy: senderName,
       sentByEmail: senderEmail,
-      sentById:    req.admin?._id,
-      sentAt:      new Date(),
-      direction:   "outgoing",
+      sentById: req.admin?._id,
+      sentAt: new Date(),
+      direction: "outgoing",
     };
 
-    msg.replies    = msg.replies || [];
+    msg.replies = msg.replies || [];
     msg.replies.push(replyEntry);
-    msg.reply      = replyText;
-    msg.status     = "replied";
-    msg.repliedAt  = new Date();
+    msg.reply = replyText;
+    msg.status = "replied";
+    msg.repliedAt = new Date();
     // Store the member's email so incoming client replies can be matched
     msg.assignedToEmail = senderEmail;
     await msg.save();
 
-    res.json({ success: true, data: msg, message: `Reply sent from ${senderEmail}` });
+    res.json({
+      success: true,
+      data: msg,
+      message: `Reply sent from ${senderEmail}`,
+    });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Failed to send reply: " + error.message });
+    res.status(500).json({
+      success: false,
+      message: "Failed to send reply: " + error.message,
+    });
   }
 };
 
@@ -324,10 +387,15 @@ export const replyToMessage = async (req, res) => {
 export const deleteMessage = async (req, res) => {
   try {
     const msg = await Contact.findByIdAndDelete(req.params.id);
-    if (!msg) return res.status(404).json({ success: false, message: "Message not found." });
+    if (!msg)
+      return res
+        .status(404)
+        .json({ success: false, message: "Message not found." });
     res.json({ success: true, message: "Message deleted." });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Failed to delete message." });
+    res
+      .status(500)
+      .json({ success: false, message: "Failed to delete message." });
   }
 };
 
@@ -338,34 +406,46 @@ export const sendTestEmail = async (req, res) => {
   try {
     const nodemailer = (await import("nodemailer")).default;
 
-    const host   = process.env.EMAIL_HOST;
-    const port   = Number(process.env.EMAIL_PORT) || 587;
+    const host = process.env.EMAIL_HOST;
+    const port = Number(process.env.EMAIL_PORT) || 587;
     const secure = process.env.EMAIL_SECURE === "true" || port === 465;
-    const user   = process.env.EMAIL_USER;
-    const pass   = process.env.EMAIL_PASS;
+    const user = process.env.EMAIL_USER;
+    const pass = process.env.EMAIL_PASS;
 
     if (!host || !user || !pass) {
       return res.status(500).json({
         success: false,
-        message: "Email is not configured. Set EMAIL_HOST, EMAIL_USER, EMAIL_PASS in environment variables.",
-        debug: { host: !!host, user: !!user, pass: !!pass, VERSION: "v3-self-contained" },
+        message:
+          "Email is not configured. Set EMAIL_HOST, EMAIL_USER, EMAIL_PASS in environment variables.",
+        debug: {
+          host: !!host,
+          user: !!user,
+          pass: !!pass,
+          VERSION: "v3-self-contained",
+        },
       });
     }
 
     const transporter = nodemailer.createTransport({
-      host, port, secure,
+      host,
+      port,
+      secure,
       auth: { user, pass },
       tls: { rejectUnauthorized: false },
     });
 
     const recipients = await getNotifyEmails();
     if (!recipients.length) {
-      return res.status(400).json({ success: false, message: "No recipient emails configured. Add at least one email in Email Settings." });
+      return res.status(400).json({
+        success: false,
+        message:
+          "No recipient emails configured. Add at least one email in Email Settings.",
+      });
     }
 
     await transporter.sendMail({
-      from:    `"SaleemiExpert" <${user}>`,
-      to:      recipients,
+      from: `"SaleemiExpert" <${user}>`,
+      to: recipients,
       subject: "✅ Test Email — SaleemiExpert Email Setup Working",
       html: `
         <div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden">
@@ -381,9 +461,17 @@ export const sendTestEmail = async (req, res) => {
         </div>`,
     });
 
-    res.json({ success: true, message: "Test email sent! (v3-self-contained)", recipients });
+    res.json({
+      success: true,
+      message: "Test email sent! (v3-self-contained)",
+      recipients,
+    });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Test failed: " + error.message, code: error.code });
+    res.status(500).json({
+      success: false,
+      message: "Test failed: " + error.message,
+      code: error.code,
+    });
   }
 };
 
@@ -395,27 +483,42 @@ export const sendCustomEmail = async (req, res) => {
     const { recipients, subject, body } = req.body;
 
     if (!recipients?.length || !subject || !body) {
-      return res.status(400).json({ success: false, message: "Recipients, subject and body are required." });
+      return res.status(400).json({
+        success: false,
+        message: "Recipients, subject and body are required.",
+      });
     }
 
-    const about       = await About.findOne();
-    const transporter = buildTransporter();
+    const about = await About.findOne();
 
-    // Use sender's own email address if configured, else fall back to global
+    // Use sender's own email if configured, else fall back to global
     const senderEmail = req.admin?.smtpEmail || process.env.EMAIL_USER;
-    const senderName  = req.admin?.smtpName  || req.admin?.name || about?.name || "SaleemiExpert";
+    const senderName =
+      req.admin?.smtpName || req.admin?.name || about?.name || "SaleemiExpert";
 
     if (!senderEmail || !process.env.EMAIL_PASS) {
-      return res.status(400).json({ success: false, message: "Email not configured. Go to Email Settings first." });
+      return res.status(400).json({
+        success: false,
+        message: "Email not configured. Go to Email Settings first.",
+      });
     }
+
+    // Authenticate as the sender's own email (all Zoho org accounts share same password)
+    const transporter = nodemailer.createTransport({
+      host: process.env.EMAIL_HOST,
+      port: Number(process.env.EMAIL_PORT) || 587,
+      secure: process.env.EMAIL_SECURE === "true",
+      auth: { user: senderEmail, pass: process.env.EMAIL_PASS },
+      tls: { rejectUnauthorized: false },
+    });
 
     let status = "sent";
     let errorMsg = null;
 
     try {
       await transporter.sendMail({
-        from:    `"${senderName}" <${senderEmail}>`,
-        to:      recipients,
+        from: `"${senderName}" <${senderEmail}>`,
+        to: recipients,
         subject: subject,
         html: `
           <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden">
@@ -432,7 +535,7 @@ export const sendCustomEmail = async (req, res) => {
         `,
       });
     } catch (mailErr) {
-      status   = "failed";
+      status = "failed";
       errorMsg = mailErr.message;
     }
 
@@ -443,10 +546,10 @@ export const sendCustomEmail = async (req, res) => {
       subject,
       body,
       status,
-      error:       errorMsg,
-      sentBy:      req.admin?.name  || "Admin",
+      error: errorMsg,
+      sentBy: req.admin?.name || "Admin",
       sentByEmail: req.admin?.email || "",
-      sentById:    req.admin?._id   || null,
+      sentById: req.admin?._id || null,
     });
 
     if (status === "failed") {
@@ -464,7 +567,9 @@ export const sendCustomEmail = async (req, res) => {
       record,
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Error: " + error.message });
+    res
+      .status(500)
+      .json({ success: false, message: "Error: " + error.message });
   }
 };
 
@@ -477,11 +582,12 @@ export const getSentEmails = async (req, res) => {
 
     // Superadmin sees ALL sent emails
     // Other users only see emails THEY sent
-    const filter = req.admin.role === "superadmin"
-      ? {}
-      : { sentById: req.admin._id };
+    const filter =
+      req.admin.role === "superadmin" ? {} : { sentById: req.admin._id };
 
-    const emails = await SentEmail.find(filter).sort({ createdAt: -1 }).limit(100);
+    const emails = await SentEmail.find(filter)
+      .sort({ createdAt: -1 })
+      .limit(100);
     res.json({
       success: true,
       data: emails,
@@ -499,14 +605,20 @@ export const deleteSentEmail = async (req, res) => {
   try {
     const SentEmail = (await import("../models/SentEmail.model.js")).default;
     const email = await SentEmail.findById(req.params.id);
-    if (!email) return res.status(404).json({ success: false, message: "Record not found." });
+    if (!email)
+      return res
+        .status(404)
+        .json({ success: false, message: "Record not found." });
 
     // Only superadmin or the sender can delete
     const isSuperAdmin = req.admin.role === "superadmin";
-    const isOwner      = email.sentById?.toString() === req.admin._id.toString();
+    const isOwner = email.sentById?.toString() === req.admin._id.toString();
 
     if (!isSuperAdmin && !isOwner) {
-      return res.status(403).json({ success: false, message: "You can only delete your own email records." });
+      return res.status(403).json({
+        success: false,
+        message: "You can only delete your own email records.",
+      });
     }
 
     await SentEmail.findByIdAndDelete(req.params.id);
